@@ -17,7 +17,7 @@ import (
 //StartAudit : Starts Audit
 func StartAudit() {
 	var status C.int
-	C.initializeMonitoring(&status)
+	C.startMonitoring(&status)
 	if status == C.STATUS_ERROR {
 		// Panic here because without this succeeding, we can't do anything.
 		// We expect that the main function shall recover.
@@ -43,4 +43,9 @@ func ConfigureAudit() {
 //StopAudit : Stops audit?
 func StopAudit() {
 
+}
+
+//export goBridge
+func goBridge(message *C.es_message_t) {
+	fmt.Printf("%v\n", message)
 }

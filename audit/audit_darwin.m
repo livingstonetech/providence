@@ -13,9 +13,10 @@
 es_event_type_t eventSubscriptions[20];
 int eventSubscriptionsSize = 0;
 es_client_t* client = nil;
+
 CallbackBlock callbackBlock = ^(const es_message_t* message) {
-    // TODO: Write code here to exit to golang
-    NSLog(@"Received Event");
+    // Exit point to Golang
+    goBridge(*message);
 };
 
 /*----------------------------------------------------------------------------*/
@@ -65,7 +66,7 @@ void enableMonitoringType(int type, int* status) {
     }
 }
 
-void initializeMonitoring(int* status) {
+void startMonitoring(int* status) {
     *status = STATUS_SUCCESS;
     es_new_client_result_t result = 0;
 
@@ -114,5 +115,6 @@ void initializeMonitoring(int* status) {
         return;
     }
 
-    NSLog(@"All looks good.");
+    NSLog(@"All looks good. Looping forever...");
+    [[NSRunLoop currentRunLoop] run];
 }

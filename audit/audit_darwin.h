@@ -18,6 +18,6 @@
 typedef void(^CallbackBlock)(const es_message_t* _Nonnull);
 
 void enableMonitoringType(int, int* _Null_unspecified);
-void initializeMonitoring(int* _Null_unspecified);
+void startMonitoring(int* _Null_unspecified);
 
 #endif
