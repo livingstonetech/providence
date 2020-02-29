@@ -15,5 +15,9 @@
 #define STATUS_ERROR                0x0
 #define STATUS_SUCCESS              0x1
 
+typedef void(^CallbackBlock)(const es_message_t* _Nonnull);
+
 void enableMonitoringType(int, int* _Null_unspecified);
+void initializeMonitoring(int* _Null_unspecified);
+
 #endif
