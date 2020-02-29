@@ -20,8 +20,14 @@ func StartAudit() {
 //ConfigureAudit : Configures auditing
 func ConfigureAudit() {
 	status := C.int(1)
+	C.enableMonitoringType(C.AUDIT_MONITOR_FILE, &status)
+	if status != 1 {
+		fmt.Println("Error initializing monitoring")
+	}
 	C.enableMonitoringType(C.AUDIT_MONITOR_PROCESS, &status)
-	fmt.Println(status)
+	if status != 1 {
+		fmt.Println("Error initializing monitoring")
+	}
 }
 
 //StopAudit : Stops audit?
