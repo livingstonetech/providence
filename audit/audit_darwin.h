@@ -16,6 +16,7 @@
 #define STATUS_SUCCESS              0x1
 
 typedef void(^CallbackBlock)(const es_message_t* _Nonnull);
+// extern void goBridge(const es_message_t* _Nonnull);
 
 void enableMonitoringType(int, int* _Null_unspecified);
 void startMonitoring(int* _Null_unspecified);

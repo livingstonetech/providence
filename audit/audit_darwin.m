@@ -15,8 +15,11 @@ int eventSubscriptionsSize = 0;
 es_client_t* client = nil;
 
 CallbackBlock callbackBlock = ^(const es_message_t* message) {
-    // Exit point to Golang
-    goBridge(*message);
+    /* For some reason, processes halt if this is not there.
+     * Haven't figured out why this is required for NOTIFY type events.
+     */
+    es_respond_auth_result(client, message, ES_AUTH_RESULT_ALLOW, true);
+    goBridge(message);
 };
 
 /*----------------------------------------------------------------------------*/
@@ -114,7 +117,6 @@ void startMonitoring(int* status) {
         NSLog(@"Failed to subscribe. Exiting...");
         return;
     }
-
     NSLog(@"All looks good. Looping forever...");
     [[NSRunLoop currentRunLoop] run];
 }

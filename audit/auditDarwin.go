@@ -9,8 +9,6 @@ import (
 		#import "audit_darwin.h"
 	*/
 	"C"
-)
-import (
 	"fmt"
 )
 
@@ -47,5 +45,6 @@ func StopAudit() {
 
 //export goBridge
 func goBridge(message *C.es_message_t) {
-	fmt.Printf("%v\n", message)
+	fmt.Printf("%+v\n", message)
+	// Write code for transformation
 }
