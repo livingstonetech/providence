@@ -57,7 +57,7 @@ void enableMonitoringType(int type, int* status) {
             // printArray(eventSubscriptions, eventSubscriptionsSize);
             break;
         case AUDIT_MONITOR_PROCESS:
-            for(i = eventSubscriptionsSize, j = 0; j < (sizeof(file_monitor_events) / step_size); i++, j++) {
+            for(i = eventSubscriptionsSize, j = 0; j < (sizeof(process_monitor_events) / step_size); i++, j++) {
                 eventSubscriptions[i] = process_monitor_events[j];
             }
             eventSubscriptionsSize += sizeof(process_monitor_events) / step_size;
