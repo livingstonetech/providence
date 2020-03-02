@@ -21,10 +21,10 @@ func checkServer(destination, port string) error {
 	return err
 }
 
-func dispatchParsedData(parsedData []byte, parser, destination, port, destinationURL string) error {
-	parserType := fmt.Sprintf(strings.ToLower(parser))
+func (d Dispatcher) dispatchParsedData(parsedData []byte, destinationURL string) error {
+	parserType := fmt.Sprintf(strings.ToLower(d.Parser))
 
-	if err := checkServer(destination, port); err != nil {
+	if err := checkServer(d.Destination, d.Port); err != nil {
 		return err
 	}
 
@@ -71,7 +71,7 @@ func (d Dispatcher) DispatchMessage(logs interface{}) {
 		fmt.Println("Unknown parser", d.Parser)
 		return
 	}
-	dispatchError := dispatchParsedData(parsedData, d.Parser, d.Destination, d.Port, destinationURL)
+	dispatchError := d.dispatchParsedData(parsedData, destinationURL)
 	if dispatchError != nil {
 		fmt.Println(dispatchError)
 		return
