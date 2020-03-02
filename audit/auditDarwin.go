@@ -10,10 +10,21 @@ import (
 	*/
 	"C"
 	"fmt"
+
+	"github.com/livingstonetech/providence/transformer"
 )
 
+// Sorry but I had to go global.
+var globalAu Auditor
+
+//Audit : Entrypoint to auditing
+type Auditor struct {
+	Name              string
+	TransformerModule transformer.Transformer
+}
+
 //StartAudit : Starts Audit
-func StartAudit() {
+func (au Auditor) StartAudit() {
 	var status C.int
 	C.startMonitoring(&status)
 	if status == C.STATUS_ERROR {
@@ -24,7 +35,7 @@ func StartAudit() {
 }
 
 //ConfigureAudit : Configures auditing
-func ConfigureAudit() {
+func (au Auditor) ConfigureAudit() {
 	var status C.int
 	C.enableMonitoringType(C.AUDIT_MONITOR_FILE, &status)
 	if status == C.STATUS_ERROR {
@@ -36,15 +47,17 @@ func ConfigureAudit() {
 		fmt.Println("Error initializing monitoring")
 		return
 	}
+	// Assigning global here.
+	globalAu = au
 }
 
 //StopAudit : Stops audit?
-func StopAudit() {
+func (au Auditor) StopAudit() {
 
 }
 
 //export goBridge
 func goBridge(message *C.es_message_t) {
-	fmt.Printf("%+v\n", message)
-	// Write code for transformation
+	// fmt.Printf("%+v\n", message)
+	globalAu.TransformerModule.Hello("bois")
 }
