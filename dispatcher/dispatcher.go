@@ -14,6 +14,8 @@ type Dispatcher struct {
 	Destination string
 	Port        string
 	Parser      string
+	Username    string
+	Password    string
 }
 
 func checkServer(destination, port string) error {
@@ -31,12 +33,24 @@ func (d Dispatcher) dispatchParsedData(parsedData []byte, destinationURL string)
 	fmt.Println("Connected successfully to server:", destinationURL)
 	fmt.Println("Sending parsed", parserType, "to server...")
 
-	response, err := http.Post(destinationURL, fmt.Sprintf("application/%v", parserType), bytes.NewBuffer(parsedData))
+	request, err := http.NewRequest("POST", destinationURL, bytes.NewBuffer(parsedData))
+	if err != nil {
+		return err
+	}
+
+	request.Header.Set("Content-type", fmt.Sprintf("application/%v", parserType))
+	request.SetBasicAuth(d.Username, d.Password)
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+
 	if err != nil {
 		return err
 	}
 	defer response.Body.Close()
 
+	fmt.Println("Response Status:", response.Status)
+	fmt.Println("Response body:")
 	// Below code is to be modified according to expected response from Kibana
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
