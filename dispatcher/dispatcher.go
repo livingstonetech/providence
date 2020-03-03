@@ -2,86 +2,101 @@ package dispatcher
 
 import (
 	"bytes"
+	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	"github.com/icza/dyno"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"io/ioutil"
-	"net"
 	"net/http"
-	"strings"
 )
 
 // Dispatcher used to set required destination and parser
 type Dispatcher struct {
-	Destination string
-	Port        string
-	Parser      string
+	Config		*viper.Viper
 }
 
-func checkServer(destination, port string) error {
-	_, err := net.Dial("tcp", fmt.Sprintf("%v:%v", destination, port))
-	return err
+func CreateDispatcher(config *viper.Viper) *Dispatcher {
+	return &Dispatcher{Config: config}
 }
 
-func (d Dispatcher) dispatchParsedData(parsedData []byte, destinationURL string) error {
-	parserType := fmt.Sprintf(strings.ToLower(d.Parser))
+func syslogDispatcher(config map[string]interface{}, body []byte){
+	fmt.Printf("Yolo %v %v\n", config, string(body))
+}
 
-	if err := checkServer(d.Destination, d.Port); err != nil {
-		return err
+
+func fileDispatcher(config map[string]interface{}, body []byte){
+	requiredKeys := []string{"path"}
+	if !isValidConfig(requiredKeys, config) {
+		return
 	}
-
-	fmt.Println("Connected successfully to server:", destinationURL)
-	fmt.Println("Sending parsed", parserType, "to server...")
-
-	response, err := http.Post(destinationURL, fmt.Sprintf("application/%v", parserType), bytes.NewBuffer(parsedData))
+	err := ioutil.WriteFile(config["path"].(string), append(body, 10), 0644)
 	if err != nil {
-		return err
+		log.Errorf("Failed to write to file")
 	}
-	defer response.Body.Close()
-
-	// Below code is to be modified according to expected response from Kibana
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(body))
-
-	return nil
 }
 
-// DispatchMessage used to parse and dispatch parsed message to given destination
-func (d Dispatcher) DispatchMessage(logs interface{}) {
-	fmt.Println("Initiated", d.Parser, "parsing...")
-	var parsedData []byte
-	var parseError error
-	destinationURL := fmt.Sprintf("http://%v:%v", d.Destination, d.Port)
+func httpDispatcher(config map[string]interface{}, body []byte){
+	requiredKeys := []string{"url", "port", "format"}
+	if !isValidConfig(requiredKeys, config) {
+		return
+	}
+	uri := config["url"].(string)
+	port := config["port"].(int)
+	if !isValidUrl(uri) {
+		log.Errorf("url %v is invalid")
+		return
+	}
+	contentType := fmt.Sprintf("application/%v", config["format"].(string))
+	resp, err := http.Post(fmt.Sprintf("%v:%v", uri, port), contentType, bytes.NewReader(body))
+	if err != nil{
+		log.Errorf("HTTP Response Error %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		log.Errorf("HTTP Response Error. Body: %v", ioutil.ReadAll(resp.Body))
+	}
+}
 
-	switch d.Parser {
+func dispatch(destination map[string]interface{}, event interface{}) {
+	format := destination["format"].(string)
+	dispatchType := destination["type"].(string)
+	var body []byte
+
+	switch format {
 	case "json":
-		parsedData, parseError = ParseJSON(logs)
-		if parseError != nil {
-			fmt.Println(parseError)
-			return
+		bodyBytes, err := json.Marshal(event)
+		if err != nil {
+			log.Errorf("Error parsing JSON: %v", err)
 		}
+		body = bodyBytes
 	case "xml":
-		parsedData, parseError = ParseXML(logs)
-		if parseError != nil {
-			fmt.Println(parseError)
-			return
+		bodyBytes, err := xml.Marshal(event)
+		if err != nil {
+			log.Errorf("Error parsing JSON: %v", err)
 		}
+		body = bodyBytes
 	default:
-		fmt.Println("Unknown parser", d.Parser)
-		return
+		log.Errorf("Invalid format %v", format)
 	}
-	dispatchError := d.dispatchParsedData(parsedData, destinationURL)
-	if dispatchError != nil {
-		fmt.Println(dispatchError)
-		return
+	switch dispatchType {
+	case "http":
+		httpDispatcher(destination, body)
+	case "file":
+		fileDispatcher(destination, body)
+	case "stdout":
+		fmt.Println(string(body))
+	case "syslog":
+		syslogDispatcher(destination, body)
+	default:
+		log.Errorf("Dispatcher type not implemented: %v", dispatchType)
 	}
-	fmt.Println("Successfully sent parsed", d.Parser, "to", destinationURL)
-	recordEventError := SaveEvent(parsedData, d.Parser)
-	if recordEventError != nil {
-		fmt.Println(recordEventError)
-		return
+}
+
+func (d Dispatcher) Dispatch(event interface{}) {
+	destinations := d.Config.Get("dispatch")
+	for _, destination := range destinations.([]interface {}) {
+		go dispatch(dyno.ConvertMapI2MapS(destination).(map[string]interface{}), event)
 	}
-	fileName := fmt.Sprintf("logs/%vLogs.txt", strings.ToUpper(d.Parser))
-	fmt.Println("Successfully recorded logs at", fileName)
 }
