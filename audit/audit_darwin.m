@@ -41,12 +41,24 @@ void enableMonitoringType(int type, int* status) {
     int events_array_size = 0;
     es_event_type_t file_monitor_events[] = {
         ES_EVENT_TYPE_NOTIFY_OPEN,
-        ES_EVENT_TYPE_NOTIFY_CREATE
+        ES_EVENT_TYPE_NOTIFY_CLOSE,
+        ES_EVENT_TYPE_NOTIFY_CREATE,
+        ES_EVENT_TYPE_NOTIFY_RENAME,
+        ES_EVENT_TYPE_NOTIFY_LINK,
+        ES_EVENT_TYPE_NOTIFY_UNLINK,
+        ES_EVENT_TYPE_NOTIFY_SETMODE,
+        ES_EVENT_TYPE_NOTIFY_SETOWNER,
+        ES_EVENT_TYPE_NOTIFY_WRITE,
+        ES_EVENT_TYPE_NOTIFY_MOUNT,
+        ES_EVENT_TYPE_NOTIFY_UNMOUNT
     };
     es_event_type_t process_monitor_events[] = {
         ES_EVENT_TYPE_NOTIFY_EXEC,
         ES_EVENT_TYPE_NOTIFY_FORK,
-        ES_EVENT_TYPE_NOTIFY_EXIT
+        ES_EVENT_TYPE_NOTIFY_EXIT,
+        ES_EVENT_TYPE_NOTIFY_SIGNAL,
+        ES_EVENT_TYPE_NOTIFY_KEXTLOAD,
+        ES_EVENT_TYPE_NOTIFY_KEXTUNLOAD
     };
     switch (type) {
         case AUDIT_MONITOR_FILE:
