@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/icza/dyno"
+	"github.com/livingstonetech/providence/transformer"
 	"github.com/mozilla/libaudit-go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -16,13 +17,14 @@ import (
 //Auditor : Entrypoint to auditing
 type Auditor struct {
 	Config			*viper.Viper
-	//TransformerModule transformer.Transformer
+	Transformer 	*transformer.Transformer
 	NetlinkSocket	*libaudit.NetlinkConnection
 }
 
 func CreateAudit(config *viper.Viper) *Auditor {
 	log.Info("Create audit called")
 	a := Auditor{Config:config}
+	a.Transformer = transformer.CreateTransformer(config)
 	s, err := libaudit.NewNetlinkConnection()
 	if err != nil {
 		log.Error("Netlink connection could not be created %v", err)
