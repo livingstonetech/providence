@@ -3,31 +3,45 @@
 package audit
 
 import (
+	"github.com/spf13/viper"
 
 	/*
-		#cgo CFLAGS: -x objective-c
+		#cgo CFLAGS: -x objective-c -Wimplicit-function-declaration
 		#cgo LDFLAGS: -framework Foundation -lEndpointSecurity
 		#import "audit_darwin.h"
 	*/
 	"C"
 	"fmt"
+	"unsafe"
 
 	"github.com/livingstonetech/providence/transformer"
 )
-import "unsafe"
 
 // Sorry but I had to go global.
-var globalAu Auditor
+var transChan chan transformer.ESMessage
 
 //Auditor : Entrypoint to auditing
 type Auditor struct {
-	Name              string
-	TransformerModule transformer.Transformer
+	Config      *viper.Viper
+	transformer transformer.Transformer
+}
+
+//CreateAudit constructor for audit
+func CreateAudit(config *viper.Viper) *Auditor {
+	fmt.Printf("%+v\n", config)
+	au := Auditor{
+		Config: config,
+	}
+	// Assigning global here.
+	transChan = make(chan transformer.ESMessage)
+	au.transformer = transformer.Transformer{}
+	return &au
 }
 
 //StartAudit : Starts Audit
 func (au Auditor) StartAudit() {
 	var status C.int
+	go au.transformer.Listen(transChan)
 	C.startMonitoring(&status)
 	if status == C.STATUS_ERROR {
 		// Panic here because without this succeeding, we can't do anything.
@@ -49,13 +63,11 @@ func (au Auditor) ConfigureAudit() {
 		fmt.Println("Error initializing monitoring")
 		return
 	}
-	// Assigning global here.
-	globalAu = au
 }
 
 //StopAudit : Stops audit?
 func (au Auditor) StopAudit() {
-
+	globalChan.close()
 }
 
 func esEventTypeToStr(eventType C.es_event_type_t) string {
@@ -66,10 +78,34 @@ func esEventTypeToStr(eventType C.es_event_type_t) string {
 		return "ES_EVENT_TYPE_NOTIFY_EXIT"
 	case C.ES_EVENT_TYPE_NOTIFY_FORK:
 		return "ES_EVENT_TYPE_NOTIFY_FORK"
+	case C.ES_EVENT_TYPE_NOTIFY_SIGNAL:
+		return "ES_EVENT_TYPE_NOTIFY_SIGNAL"
+	case C.ES_EVENT_TYPE_NOTIFY_KEXTLOAD:
+		return "ES_EVENT_TYPE_NOTIFY_KEXTLOAD"
+	case C.ES_EVENT_TYPE_NOTIFY_KEXTUNLOAD:
+		return "ES_EVENT_TYPE_NOTIFY_KEXTUNLOAD"
 	case C.ES_EVENT_TYPE_NOTIFY_OPEN:
 		return "ES_EVENT_TYPE_NOTIFY_OPEN"
+	case C.ES_EVENT_TYPE_NOTIFY_CLOSE:
+		return "ES_EVENT_TYPE_NOTIFY_CLOSE"
 	case C.ES_EVENT_TYPE_NOTIFY_CREATE:
 		return "ES_EVENT_TYPE_NOTIFY_CREATE"
+	case C.ES_EVENT_TYPE_NOTIFY_RENAME:
+		return "ES_EVENT_TYPE_NOTIFY_RENAME"
+	case C.ES_EVENT_TYPE_NOTIFY_LINK:
+		return "ES_EVENT_TYPE_NOTIFY_LINK"
+	case C.ES_EVENT_TYPE_NOTIFY_UNLINK:
+		return "ES_EVENT_TYPE_NOTIFY_UNLINK"
+	case C.ES_EVENT_TYPE_NOTIFY_SETMODE:
+		return "ES_EVENT_TYPE_NOTIFY_SETMODE"
+	case C.ES_EVENT_TYPE_NOTIFY_SETOWNER:
+		return "ES_EVENT_TYPE_NOTIFY_SETOWNER"
+	case C.ES_EVENT_TYPE_NOTIFY_WRITE:
+		return "ES_EVENT_TYPE_NOTIFY_WRITE"
+	case C.ES_EVENT_TYPE_NOTIFY_MOUNT:
+		return "ES_EVENT_TYPE_NOTIFY_MOUNT"
+	case C.ES_EVENT_TYPE_NOTIFY_UNMOUNT:
+		return "ES_EVENT_TYPE_NOTIFY_UNMOUNT"
 	default:
 		return "UNKNOWN EVENT"
 	}
@@ -132,6 +168,18 @@ func goBridge(message *C.es_message_t) {
 		}
 		esMessage.EventData = esEventFork
 		break
+
+	case C.ES_EVENT_TYPE_NOTIFY_SIGNAL:
+		// eventData := (*C.es_event_signal_t)(unsafe.Pointer(&message.event))
+
+		break
+
+	case C.ES_EVENT_TYPE_NOTIFY_KEXTLOAD:
+		break
+
+	case C.ES_EVENT_TYPE_NOTIFY_KEXTUNLOAD:
+		break
+
 	// File system events
 	case C.ES_EVENT_TYPE_NOTIFY_OPEN:
 		eventData := (*C.es_event_open_t)(unsafe.Pointer(&message.event))
@@ -142,7 +190,11 @@ func goBridge(message *C.es_message_t) {
 		esMessage.EventData = esEventOpen
 		break
 
+	case C.ES_EVENT_TYPE_NOTIFY_CLOSE:
+		break
+
 	case C.ES_EVENT_TYPE_NOTIFY_CREATE:
+		//TODO: Need to fix this. Right now the union is not casting properly.
 		eventData := (*C.es_event_create_t)(unsafe.Pointer(&message.event))
 		// var esEventCreate transformer.ESEventCreate
 		switch eventData.destination_type {
@@ -150,20 +202,39 @@ func goBridge(message *C.es_message_t) {
 			destination := (*C.es_file_t)(unsafe.Pointer(&eventData.destination))
 			// esEventCreate.FileDirectory = ""
 			// esEventCreate.FilePath = C.GoString(destination.existing_file.path.data)
-			fmt.Printf("%+v\n", destination)
+			fmt.Printf("%+v\n", &destination)
+			fmt.Printf("%+v\n", eventData)
 			break
 		case C.ES_DESTINATION_TYPE_NEW_PATH:
+			// destination := (*esCreateNewPath)(unsafe.Pointer(&eventData.destination))
 			break
 		default:
 			// null?
 			break
 		}
-
 		break
+
+	case C.ES_EVENT_TYPE_NOTIFY_RENAME:
+		break
+
+	case C.ES_EVENT_TYPE_NOTIFY_LINK:
+		break
+
+	case C.ES_EVENT_TYPE_NOTIFY_UNLINK:
+		break
+
+	case C.ES_EVENT_TYPE_NOTIFY_SETMODE:
+		break
+
+	case C.ES_EVENT_TYPE_NOTIFY_SETOWNER:
+		break
+
+	case C.ES_EVENT_TYPE_NOTIFY_WRITE:
+		break
+
 	default:
 		fmt.Println("Unknown Event ", message.event_type)
 		break
 	}
-
-	globalAu.TransformerModule.Transform(esMessage)
+	transChan <- esMessage
 }
