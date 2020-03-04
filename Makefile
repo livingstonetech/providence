@@ -12,16 +12,16 @@ DARWIN_DIR=darwin
 
 # Executable names
 BASE=providence
-RELEASE_TAG=release
-DEBUG_TAG=debug
-ARCH_X86=x86
-ARCH_X64=x64
 OS_LINUX=linux
 OS_DARWIN=darwin
 EXEC_DEBUG_LINUX=$(BASE)_debug_linux
 EXEC_DEBUG_DARWIN=$(BASE)_debug_darwin
 EXEC_RELEASE_LINUX=$(BASE)_release_linux
 EXEC_RELEASE_DARWIN=$(BASE)_release_darwin
+
+# Codesigning (Required for Mac)
+ENTITLEMENTS_FILE=entitlements.xml
+CERTIFICATE_NAME="Mac Developer"
 
 all:
 	make debug-darwin
@@ -40,12 +40,14 @@ clean:
 
 debug-darwin:
 	GOOS=darwin $(C) $(CFLAGS) -o $(BUILD_DIR)/$(DEBUG_DIR)/$(EXEC_DEBUG_DARWIN)
+	codesign -s $(CERTIFICATE_NAME) --entitlements $(ENTITLEMENTS_FILE) $(BUILD_DIR)/$(DEBUG_DIR)/$(EXEC_DEBUG_DARWIN)
 
 debug-linux:
 	GOOS=linux $(C) $(CFLAGS) -o $(BUILD_DIR)/$(DEBUG_DIR)/$(EXEC_DEBUG_LINUX)
 
 release-darwin:
 	GOOS=darwin $(C) $(CFLAGS) -ldflags $(LDFLAGS) -o $(BUILD_DIR)/$(RELEASE_DIR)/$(EXEC_RELEASE_DARWIN)
+	codesign -s $(CERTIFICATE_NAME) --entitlements $(ENTITLEMENTS_FILE) $(BUILD_DIR)/$(RELEASE_DIR)/$(EXEC_RELEASE_DARWIN)
 
 release-linux:
 	GOOS=linux $(C) $(CFLAGS) -ldflags $(LDFLAGS) -o $(BUILD_DIR)/$(RELEASE_DIR)/$(EXEC_RELEASE_LINUX)
