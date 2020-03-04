@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"net/http"
+	"os"
 )
 
 // Dispatcher used to set required destination and parser
@@ -31,9 +32,16 @@ func fileDispatcher(config map[string]interface{}, body []byte){
 	if !isValidConfig(requiredKeys, config) {
 		return
 	}
-	err := ioutil.WriteFile(config["path"].(string), append(body, 10), 0644)
+	f, err := os.OpenFile(config["path"].(string), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Errorf("Failed to write to file")
+		log.Errorf("Failed to open file: %v", err)
+		return
+	}
+	if _, err := f.Write(append(body, 10)); err != nil {
+		log.Errorf("Failed to write to file: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		log.Errorf("Failed to close file: %v", err)
 	}
 }
 
@@ -97,6 +105,6 @@ func dispatch(destination map[string]interface{}, event interface{}) {
 func (d Dispatcher) Dispatch(event interface{}) {
 	destinations := d.Config.Get("dispatch")
 	for _, destination := range destinations.([]interface {}) {
-		go dispatch(dyno.ConvertMapI2MapS(destination).(map[string]interface{}), event)
+		dispatch(dyno.ConvertMapI2MapS(destination).(map[string]interface{}), event)
 	}
 }
