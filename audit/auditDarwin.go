@@ -22,19 +22,43 @@ var transChan chan transformer.ESMessage
 
 //Auditor : Entrypoint to auditing
 type Auditor struct {
-	Config      *viper.Viper
-	transformer transformer.Transformer
+	Config        *viper.Viper
+	transformer   transformer.Transformer
+	enableProcess bool
+	enableFS      bool
 }
 
 //CreateAudit constructor for audit
 func CreateAudit(config *viper.Viper) *Auditor {
-	fmt.Printf("%+v\n", config)
+	// var rules []map[string]interface{}
+	rules := config.Get("rules").(map[string]interface{})
+
+	fileSystemRules := rules["file_system"].(map[string]interface{})
+	processRules := rules["process"].(map[string]interface{})
+
+	dispatchConfig := config.Get("dispatch").([]interface{})
+
 	au := Auditor{
 		Config: config,
 	}
-	// Assigning global here.
-	transChan = make(chan transformer.ESMessage)
-	au.transformer = transformer.Transformer{}
+
+	if len(fileSystemRules) == 0 {
+		au.enableFS = false
+	} else {
+		au.enableFS = true
+	}
+	if len(processRules) == 0 {
+		au.enableProcess = false
+	} else {
+		au.enableProcess = true
+	}
+
+	au.transformer = transformer.Transformer{
+		ProcessRules:    processRules,
+		FileSystemRules: fileSystemRules,
+		DispatchConfig:  dispatchConfig,
+	}
+
 	return &au
 }
 
@@ -53,21 +77,28 @@ func (au Auditor) StartAudit() {
 //ConfigureAudit : Configures auditing
 func (au Auditor) ConfigureAudit() {
 	var status C.int
-	C.enableMonitoringType(C.AUDIT_MONITOR_FILE, &status)
-	if status == C.STATUS_ERROR {
-		fmt.Println("Error initializing monitoring")
-		return
+	if au.enableFS == true {
+		fmt.Println("Enabling FS monitoring...")
+		C.enableMonitoringType(C.AUDIT_MONITOR_FILE, &status)
+		if status == C.STATUS_ERROR {
+			fmt.Println("Error initializing monitoring")
+		}
 	}
-	C.enableMonitoringType(C.AUDIT_MONITOR_PROCESS, &status)
-	if status == C.STATUS_ERROR {
-		fmt.Println("Error initializing monitoring")
-		return
+	if au.enableProcess == true {
+		fmt.Println("Enabling Process monitoring...")
+		C.enableMonitoringType(C.AUDIT_MONITOR_PROCESS, &status)
+		if status == C.STATUS_ERROR {
+			fmt.Println("Error initializing monitoring")
+		}
 	}
+
+	// Assigning global here.
+	transChan = make(chan transformer.ESMessage)
 }
 
 //StopAudit : Stops audit?
 func (au Auditor) StopAudit() {
-	globalChan.close()
+	close(transChan)
 }
 
 func esEventTypeToStr(eventType C.es_event_type_t) string {
@@ -148,6 +179,7 @@ func goBridge(message *C.es_message_t) {
 			TargetCDHash:    esCDHashToString(targetData.cdhash),
 		}
 		esMessage.EventData = esEventExec
+		esMessage.EventCategory = "process"
 		break
 	case C.ES_EVENT_TYPE_NOTIFY_EXIT:
 		eventData := (*C.es_event_exit_t)(unsafe.Pointer(&message.event))
@@ -155,6 +187,7 @@ func goBridge(message *C.es_message_t) {
 			Stat: int(eventData.stat),
 		}
 		esMessage.EventData = esEventExit
+		esMessage.EventCategory = "process"
 		break
 	case C.ES_EVENT_TYPE_NOTIFY_FORK:
 		eventData := (*C.es_event_fork_t)(unsafe.Pointer(&message.event))
@@ -167,17 +200,20 @@ func goBridge(message *C.es_message_t) {
 			ChildCDHash:    esCDHashToString(childData.cdhash),
 		}
 		esMessage.EventData = esEventFork
+		esMessage.EventCategory = "process"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_SIGNAL:
 		// eventData := (*C.es_event_signal_t)(unsafe.Pointer(&message.event))
-
+		esMessage.EventCategory = "process"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_KEXTLOAD:
+		esMessage.EventCategory = "process"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_KEXTUNLOAD:
+		esMessage.EventCategory = "process"
 		break
 
 	// File system events
@@ -188,22 +224,22 @@ func goBridge(message *C.es_message_t) {
 			FilePath: C.GoString(file.path.data),
 		}
 		esMessage.EventData = esEventOpen
+		esMessage.EventCategory = "file"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_CLOSE:
+		esMessage.EventCategory = "file"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_CREATE:
 		//TODO: Need to fix this. Right now the union is not casting properly.
 		eventData := (*C.es_event_create_t)(unsafe.Pointer(&message.event))
-		// var esEventCreate transformer.ESEventCreate
+		var esEventCreate transformer.ESEventCreate
 		switch eventData.destination_type {
 		case C.ES_DESTINATION_TYPE_EXISTING_FILE:
 			destination := (*C.es_file_t)(unsafe.Pointer(&eventData.destination))
 			// esEventCreate.FileDirectory = ""
-			// esEventCreate.FilePath = C.GoString(destination.existing_file.path.data)
-			fmt.Printf("%+v\n", &destination)
-			fmt.Printf("%+v\n", eventData)
+			esEventCreate.FilePath = C.GoString(destination.path.data)
 			break
 		case C.ES_DESTINATION_TYPE_NEW_PATH:
 			// destination := (*esCreateNewPath)(unsafe.Pointer(&eventData.destination))
@@ -212,24 +248,32 @@ func goBridge(message *C.es_message_t) {
 			// null?
 			break
 		}
+		esMessage.EventCategory = "file"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_RENAME:
+		// TODO fix this. Same as Create event
+		esMessage.EventCategory = "file"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_LINK:
+		esMessage.EventCategory = "file"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_UNLINK:
+		esMessage.EventCategory = "file"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_SETMODE:
+		esMessage.EventCategory = "file"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_SETOWNER:
+		esMessage.EventCategory = "file"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_WRITE:
+		esMessage.EventCategory = "file"
 		break
 
 	default:

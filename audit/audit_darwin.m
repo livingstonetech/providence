@@ -48,7 +48,7 @@ void enableMonitoringType(int type, int* status) {
         ES_EVENT_TYPE_NOTIFY_UNLINK,
         ES_EVENT_TYPE_NOTIFY_SETMODE,
         ES_EVENT_TYPE_NOTIFY_SETOWNER,
-        ES_EVENT_TYPE_NOTIFY_WRITE
+        // ES_EVENT_TYPE_NOTIFY_WRITE // this is VERY noisy
     };
     es_event_type_t process_monitor_events[] = {
         ES_EVENT_TYPE_NOTIFY_EXEC,

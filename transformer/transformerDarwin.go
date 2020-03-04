@@ -3,7 +3,6 @@
 package transformer
 
 import (
-	"encoding/json"
 	"fmt"
 )
 
@@ -16,26 +15,38 @@ func Bridge(message interface{}) {
 
 //Transformer : This will eventually have a dispatcher and some rules
 type Transformer struct {
+	ProcessRules    map[string]interface{}
+	FileSystemRules map[string]interface{}
+	DispatchConfig  []interface{}
 }
 
 //CreateTransformer initializes transformer
-func (t Transformer) CreateTransformer() {
+func CreateTransformer(processRules map[string]interface{},
+	fileSystemRules map[string]interface{},
+	dispatchConfig []interface{}) *Transformer {
+	t := Transformer{
+		ProcessRules:    processRules,
+		FileSystemRules: fileSystemRules,
+		DispatchConfig:  dispatchConfig,
+	}
 
+	return &t
 }
 
 //Listen causes transformer to listen for events to transform
 func (t Transformer) Listen(inChan chan ESMessage) {
 	for {
-		msg, open := <-inChan
-		if open != true {
-			return
-		}
+		msg := <-inChan
 		go t.Transform(msg)
 	}
 }
 
 //Transform : Transform it!
 func (t Transformer) Transform(message ESMessage) {
-	data, _ := json.Marshal(message)
-	fmt.Println(string(data))
+
+	if message.EventCategory == "file" {
+		fmt.Println("File Event")
+	} else if message.EventCategory == "process" {
+		fmt.Println("Process Event")
+	}
 }

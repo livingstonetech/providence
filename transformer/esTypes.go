@@ -2,10 +2,11 @@ package transformer
 
 //ESMessage : Part of the Message type from Apple's Security framework
 type ESMessage struct {
-	MachTime  uint64
-	Process   ESProcess
-	EventType string
-	EventData interface{} // Interface for dynamic data. This depends on EventType.
+	MachTime      uint64
+	Process       ESProcess
+	EventType     string
+	EventCategory string
+	EventData     interface{} // Interface for dynamic data. This depends on EventType.
 }
 
 //ESProcess : Process struct of ESF
