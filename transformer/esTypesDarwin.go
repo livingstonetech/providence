@@ -46,7 +46,7 @@ type ESEventFork struct {
 
 //ESEventSignal for Signal events
 type ESEventSignal struct {
-	Signal          int
+	Signal          int // TODO: Need to map to actual signals
 	TargetPpid      int
 	TargetGroupID   int
 	TargetSigningID string
