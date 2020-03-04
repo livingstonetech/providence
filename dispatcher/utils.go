@@ -2,15 +2,16 @@ package dispatcher
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"net/url"
 	"os"
 	"runtime"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func isValidConfig(keys []string, config map[string]interface{}) bool {
 	for _, k := range keys {
-		if _, ok  := config[k]; !ok {
+		if _, ok := config[k]; !ok {
 			log.Errorf("Key %v does not exist in config but required", k)
 			return false
 		}

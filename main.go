@@ -2,14 +2,15 @@ package main
 
 import (
 	"flag"
-	"github.com/livingstonetech/providence/audit"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
-	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/livingstonetech/providence/audit"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 func init() {
@@ -24,6 +25,7 @@ func init() {
 	mw := io.MultiWriter(os.Stdout, l)
 	log.SetOutput(mw)
 	log.SetFormatter(&log.JSONFormatter{})
+	log.SetReportCaller(true)
 	channel := make(chan os.Signal, 1)
 	signal.Notify(channel, syscall.SIGHUP)
 	go func() {

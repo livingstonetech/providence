@@ -40,18 +40,18 @@ func CreateDispatcher(configBlock map[string]interface{}) *Dispatcher {
 }
 
 func (d *Dispatcher) syslogDispatcher(body []byte) error {
-	requiredKeys := []string{"url", "port", "severity"}
-	if !isValidConfig(requiredKeys, d.ConfigBlock) {
-		return errorMessage("Invalid config block")
-	}
-	uri := d.ConfigBlock["url"].(string)
-	port := d.ConfigBlock["port"].(int)
-	severity := d.ConfigBlock["severity"].(string)
-	if !isValidUrl(uri) {
-		log.Errorf("url %v is invalid")
-		return errorMessage(fmt.Sprintf("url %v is invalid", uri))
-	}
-	fmt.Printf("Yolo %v %v\n", port, severity)
+	fmt.Println("SYSLAG")
+	// lrequiredKeys := []string{"url", "port", "severity"}
+	// if !isValidConfig(requiredKeys, d.ConfigBlock) {
+	// 	return errorMessage("Invalid config block")
+	// }
+	// uri := d.ConfigBlock["url"].(string)
+	// port := d.ConfigBlock["port"].(int)
+	// severity := d.ConfigBlock["severity"].(string)
+	// if !isValidUrl(uri) {
+	// 	log.Errorf("url %v is invalid", uri)
+	// 	return errorMessage(fmt.Sprintf("url %v is invalid", uri))
+	// }
 	return nil
 }
 
@@ -75,28 +75,29 @@ func (d *Dispatcher) fileDispatcher(body []byte) error {
 }
 
 func (d *Dispatcher) httpDispatcher(body []byte) error {
-	requiredKeys := []string{"url", "port", "format"}
+	requiredKeys := []string{"url", "format"}
 	if !isValidConfig(requiredKeys, d.ConfigBlock) {
 		return errorMessage("Invalid config block")
 	}
 	uri := d.ConfigBlock["url"].(string)
-	port := d.ConfigBlock["port"].(int)
 	if !isValidUrl(uri) {
-		log.Errorf("url %v is invalid")
+		log.Errorf("url %v is invalid", uri)
 		return errorMessage(fmt.Sprintf("url %v is invalid", uri))
 	}
 	contentType := fmt.Sprintf("application/%v", d.ConfigBlock["format"].(string))
-	resp, err := http.Post(fmt.Sprintf("%v:%v", uri, port), contentType, bytes.NewReader(body))
+	resp, err := http.Post(fmt.Sprintf("%v", uri), contentType, bytes.NewReader(body))
 	if err != nil {
 		log.Errorf("HTTP Response Error %v", err)
+		return err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
+	// defer resp.Body.Close()
+	if resp.StatusCode < 200 && resp.StatusCode > 299 {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Errorf("Error while reading body from HTTP Response")
+			return err
 		}
-		log.Errorf("HTTP Response Error. Body: %v", body)
+		log.Errorf("HTTP Response Error. Body: %s", string(body))
 	}
 	return nil
 }
@@ -127,6 +128,8 @@ func (d *Dispatcher) Dispatch(event interface{}, errChan chan error) {
 			errChan <- err
 		}
 		body = bodyBytes
+		break
+	case "syslog":
 		break
 	default:
 		log.Errorf("Invalid format %v", format)

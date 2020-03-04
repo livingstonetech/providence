@@ -36,7 +36,8 @@ func CreateAudit(config *viper.Viper) *Auditor {
 	fileSystemRules := rules["file_system"].(map[string]interface{})
 	processRules := rules["process"].(map[string]interface{})
 
-	dispatchConfig := config.Get("dispatch").([]interface{})
+	// dispatchConfig := config.Get("dispatch").([]interface{})
+	dispatchConfig := config.GetStringMap("dispatch")
 
 	au := Auditor{
 		Config: config,
@@ -53,11 +54,7 @@ func CreateAudit(config *viper.Viper) *Auditor {
 		au.enableProcess = true
 	}
 
-	au.transformer = transformer.Transformer{
-		ProcessRules:    processRules,
-		FileSystemRules: fileSystemRules,
-		DispatchConfig:  dispatchConfig,
-	}
+	au.transformer = transformer.CreateTransformer(processRules, fileSystemRules, dispatchConfig)
 
 	return &au
 }
