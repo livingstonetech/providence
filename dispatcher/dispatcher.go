@@ -23,18 +23,20 @@ type Dispatcher struct {
 	ConfigBlock		map[string]interface{}
 	hostName 		string
 	operatingSystem	string
-	ipAddress		string
 }
 
 type Event struct {
 	HostName 		string
 	OperatingSystem	string
-	IpAddress		string
 	Data 			interface{}
 }
 
 func CreateDispatcher(configBlock map[string]interface{}) *Dispatcher {
-	return &Dispatcher{ConfigBlock: configBlock}
+	return &Dispatcher{
+		ConfigBlock: configBlock,
+		hostName: getHostName(),
+		operatingSystem: getOS(),
+	}
 }
 
 func (d *Dispatcher) syslogDispatcher(body []byte) error{
@@ -106,7 +108,6 @@ func (d *Dispatcher) Dispatch(event interface{}, errChan chan error) {
 	e := Event{
 		HostName:        d.hostName,
 		OperatingSystem: d.operatingSystem,
-		IpAddress:       d.ipAddress,
 		Data:            event,
 	}
 	var body []byte

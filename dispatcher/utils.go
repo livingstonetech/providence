@@ -1,8 +1,11 @@
 package dispatcher
 
 import (
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"net/url"
+	"os"
+	"runtime"
 )
 
 func isValidConfig(keys []string, config map[string]interface{}) bool {
@@ -25,4 +28,17 @@ func isValidUrl(u string) bool {
 		return false
 	}
 	return true
+}
+
+func getHostName() string {
+	hostName, err := os.Hostname()
+	if err != nil {
+		log.Errorf("Could not get hostname: %v", err)
+		return ""
+	}
+	return hostName
+}
+
+func getOS() string {
+	return fmt.Sprintf("%v-%v", runtime.GOOS, runtime.GOARCH)
 }
