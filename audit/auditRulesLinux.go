@@ -1,14 +1,16 @@
+//+build linux
+
 package audit
 
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/mozilla/libaudit-go"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"os"
 )
-
 
 type Rules struct {
 	RawRules []interface{} `json:"audit_rules"`
@@ -26,9 +28,9 @@ func fileRule(ruleName string, config *viper.Viper) libaudit.AuditFileRule {
 
 func processRule(ruleName string, config *viper.Viper) libaudit.AuditSyscallRule {
 	type Field struct {
-		Name  string 		`json:"name"`
-		Value interface{} 	`json:"value"`
-		Op    string 		`json:"op"`
+		Name  string      `json:"name"`
+		Value interface{} `json:"value"`
+		Op    string      `json:"op"`
 	}
 	processName := config.GetString(fmt.Sprintf("rules.process.%s.name", ruleName))
 	processModes := config.GetStringSlice(fmt.Sprintf("rules.process.%s.modes", ruleName))
@@ -47,8 +49,8 @@ func processRule(ruleName string, config *viper.Viper) libaudit.AuditSyscallRule
 		}
 	}
 	pr := libaudit.AuditSyscallRule{
-		Key:      ruleName,
-		Fields:   make([]struct {
+		Key: ruleName,
+		Fields: make([]struct {
 			Name  string      `json:"name"`
 			Value interface{} `json:"value"`
 			Op    string      `json:"op"`
@@ -65,7 +67,7 @@ func processRule(ruleName string, config *viper.Viper) libaudit.AuditSyscallRule
 }
 
 func (au *Auditor) GetRules() []byte {
-	rs := Rules{RawRules:make([]interface{}, 0)}
+	rs := Rules{RawRules: make([]interface{}, 0)}
 	fileRules := au.Config.GetStringMap("rules.file_system")
 	for ruleName := range fileRules {
 		rs.RawRules = append(rs.RawRules, fileRule(ruleName, au.Config))
