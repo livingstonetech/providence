@@ -1,3 +1,5 @@
+//+build darwin
+
 package transformer
 
 //ESMessage : Part of the Message type from Apple's Security framework
