@@ -15,9 +15,9 @@ import (
 
 //Auditor : Entrypoint to auditing
 type Auditor struct {
-	Config			*viper.Viper
-	Transformer 	*transformer.Transformer
-	NetlinkSocket	*libaudit.NetlinkConnection
+	Config        *viper.Viper
+	Transformer   *transformer.Transformer
+	netlinkSocket *libaudit.NetlinkConnection
 }
 
 func CreateAudit(config *viper.Viper) *Auditor {
@@ -29,27 +29,27 @@ func CreateAudit(config *viper.Viper) *Auditor {
 		log.Error("Netlink connection could not be created %v", err)
 		log.Exit(1)
 	}
-	a.NetlinkSocket = s
+	a.netlinkSocket = s
 
-	err = libaudit.AuditSetEnabled(a.NetlinkSocket, true)
+	err = libaudit.AuditSetEnabled(a.netlinkSocket, true)
 	if err != nil {
 		log.Error("AuditSetEnabled: %v", err)
 		log.Exit(1)
 	}
 
-	err = libaudit.AuditSetPID(a.NetlinkSocket, os.Getpid())
+	err = libaudit.AuditSetPID(a.netlinkSocket, os.Getpid())
 	if err != nil {
 		log.Error("AuditSetPid: %v", err)
 		log.Exit(1)
 	}
 
-	err = libaudit.AuditSetRateLimit(a.NetlinkSocket, 1000)
+	err = libaudit.AuditSetRateLimit(a.netlinkSocket, 1000)
 	if err != nil {
 		log.Error("AuditSetRateLimit: %v", err)
 		log.Exit(1)
 	}
 
-	err = libaudit.AuditSetBacklogLimit(a.NetlinkSocket, 250)
+	err = libaudit.AuditSetBacklogLimit(a.netlinkSocket, 250)
 	if err != nil {
 		log.Error("AuditSetBacklogLimit: %v", err)
 		log.Exit(1)
@@ -80,7 +80,7 @@ func auditProc(e *libaudit.AuditEvent, err error) {
 //StartAudit : Starts Audit
 func (au Auditor) StartAudit() {
 	doneCh := make(chan bool, 1)
-	libaudit.GetAuditMessages(au.NetlinkSocket, auditProc, &doneCh)
+	libaudit.GetAuditMessages(au.netlinkSocket, auditProc, &doneCh)
 }
 
 
@@ -106,7 +106,7 @@ func (au Auditor) ConfigureAudit() {
 		log.Exit(1)
 	}
 	rules := au.GetRules()
-	setRules(au.NetlinkSocket, rules)
+	setRules(au.netlinkSocket, rules)
 }
 
 //StopAudit : Stops audit?
