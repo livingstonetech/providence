@@ -63,7 +63,11 @@ func httpDispatcher(config map[string]interface{}, body []byte){
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		log.Errorf("HTTP Response Error. Body: %v", ioutil.ReadAll(resp.Body))
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Errorf("Error while reading body from HTTP Response")
+		}
+		log.Errorf("HTTP Response Error. Body: %v", body)
 	}
 }
 
