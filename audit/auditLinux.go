@@ -5,7 +5,6 @@ package audit
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/icza/dyno"
 	"github.com/livingstonetech/providence/transformer"
 	"github.com/mozilla/libaudit-go"
 	log "github.com/sirupsen/logrus"
@@ -84,28 +83,8 @@ func (au Auditor) StartAudit() {
 	libaudit.GetAuditMessages(au.NetlinkSocket, auditProc, &doneCh)
 }
 
-func setRules(s *libaudit.NetlinkConnection, rules []interface{}) {
-	auditJson := make(map[string]interface{})
-	var auditRules []map[string]interface{}
-	for _, rule := range rules {
-		_ = dyno.Set(rule, "rwa", "permission")
-		_ = dyno.Set(rule, false, "strict_path_check")
-		r2 := dyno.ConvertMapI2MapS(rule).(map[string]interface{})
-		auditRules = append(auditRules, r2)
-	}
-	auditJson["audit_rules"] = auditRules
-	var ar libaudit.AuditRules
-	buf, err := json.Marshal(auditJson)
-	fmt.Printf("%v\n", string(buf))
-	if err != nil {
-		log.Error("Failed to marshal rules to JSON")
-		os.Exit(1)
-	}
-	//// Make sure we can unmarshal the rules JSON to validate it is the correct format
-	if  err := json.Unmarshal(buf, &ar); err != nil {
-		log.Errorf("Unmarshaling rules JSON failed: %v", err)
-		log.Exit(1)
-	}
+
+func setRules(s *libaudit.NetlinkConnection, buf []byte) {
 	warnings, err := libaudit.SetRules(s, buf)
 	if err != nil {
 		log.Errorf("SetRules: %v", err)
@@ -126,7 +105,8 @@ func (au Auditor) ConfigureAudit() {
 		log.Fatalf("Could not delete rules %v", err)
 		log.Exit(1)
 	}
-	setRules(au.NetlinkSocket, au.Config.Get("rules").([]interface {}))
+	rules := au.GetRules()
+	setRules(au.NetlinkSocket, rules)
 }
 
 //StopAudit : Stops audit?
