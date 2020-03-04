@@ -2,100 +2,150 @@ package dispatcher
 
 import (
 	"bytes"
+	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	"net"
 	"net/http"
-	"strings"
+	"os"
 )
+
+type errorMessage string
+
+func (m errorMessage) Error() string {
+	return fmt.Sprintf(string(m))
+}
+
 
 // Dispatcher used to set required destination and parser
 type Dispatcher struct {
-	Destination string
-	Port        string
-	Parser      string
-	Username    string
-	Password    string
+	ConfigBlock		map[string]interface{}
+	hostName 		string
+	operatingSystem	string
+	ipAddress		string
 }
 
-func checkServer(destination, port string) error {
-	_, err := net.Dial("tcp", fmt.Sprintf("%v:%v", destination, port))
-	return err
+type Event struct {
+	HostName 		string
+	OperatingSystem	string
+	IpAddress		string
+	Data 			interface{}
 }
 
-func (d Dispatcher) dispatchParsedData(parsedData []byte, destinationURL string) error {
-	parserType := fmt.Sprintf(strings.ToLower(d.Parser))
+func CreateDispatcher(configBlock map[string]interface{}) *Dispatcher {
+	return &Dispatcher{ConfigBlock: configBlock}
+}
 
-	if err := checkServer(d.Destination, d.Port); err != nil {
-		return err
+func (d *Dispatcher) syslogDispatcher(body []byte) error{
+	requiredKeys := []string{"url", "port", "severity"}
+	if !isValidConfig(requiredKeys, d.ConfigBlock) {
+		return errorMessage("Invalid config block")
 	}
-
-	fmt.Println("Connected successfully to server:", destinationURL)
-	fmt.Println("Sending parsed", parserType, "to server...")
-
-	request, err := http.NewRequest("POST", destinationURL, bytes.NewBuffer(parsedData))
-	if err != nil {
-		return err
+	uri := d.ConfigBlock["url"].(string)
+	port := d.ConfigBlock["port"].(int)
+	severity := d.ConfigBlock["severity"].(string)
+	if !isValidUrl(uri) {
+		log.Errorf("url %v is invalid")
+		return errorMessage(fmt.Sprintf("url %v is invalid", uri))
 	}
-
-	request.Header.Set("Content-type", fmt.Sprintf("application/%v", parserType))
-	request.SetBasicAuth(d.Username, d.Password)
-
-	client := &http.Client{}
-	response, err := client.Do(request)
-
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	fmt.Println("Response Status:", response.Status)
-	fmt.Println("Response body:")
-	// Below code is to be modified according to expected response from Kibana
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(body))
-
+	fmt.Printf("Yolo %v %v\n", port, severity)
 	return nil
 }
 
-// DispatchMessage used to parse and dispatch parsed message to given destination
-func (d Dispatcher) DispatchMessage(logs interface{}) {
-	fmt.Println("Initiated", d.Parser, "parsing...")
-	var parsedData []byte
-	var parseError error
-	destinationURL := fmt.Sprintf("http://%v:%v", d.Destination, d.Port)
 
-	switch d.Parser {
-	case "json":
-		parsedData, parseError = ParseJSON(logs)
-		if parseError != nil {
-			fmt.Println(parseError)
-			return
+func (d *Dispatcher) fileDispatcher(body []byte) error{
+	requiredKeys := []string{"path"}
+	if !isValidConfig(requiredKeys, d.ConfigBlock) {
+		return errorMessage("Invalid config block")
+	}
+	f, err := os.OpenFile(d.ConfigBlock["path"].(string), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Errorf("Failed to open file: %v", err)
+		return err
+	}
+	if _, err := f.Write(append(body, 10)); err != nil {
+		log.Errorf("Failed to write to file: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		log.Errorf("Failed to close file: %v", err)
+	}
+	return nil
+}
+
+func (d *Dispatcher) httpDispatcher(body []byte) error{
+	requiredKeys := []string{"url", "port", "format"}
+	if !isValidConfig(requiredKeys, d.ConfigBlock) {
+		return errorMessage("Invalid config block")
+	}
+	uri := d.ConfigBlock["url"].(string)
+	port := d.ConfigBlock["port"].(int)
+	if !isValidUrl(uri) {
+		log.Errorf("url %v is invalid")
+		return errorMessage(fmt.Sprintf("url %v is invalid", uri))
+	}
+	contentType := fmt.Sprintf("application/%v", d.ConfigBlock["format"].(string))
+	resp, err := http.Post(fmt.Sprintf("%v:%v", uri, port), contentType, bytes.NewReader(body))
+	if err != nil{
+		log.Errorf("HTTP Response Error %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Errorf("Error while reading body from HTTP Response")
 		}
+		log.Errorf("HTTP Response Error. Body: %v", body)
+	}
+	return nil
+}
+
+func (d *Dispatcher) Dispatch(event interface{}, errChan chan error) {
+	dispatchType := d.ConfigBlock["type"]
+	format := d.ConfigBlock["format"]
+	e := Event{
+		HostName:        d.hostName,
+		OperatingSystem: d.operatingSystem,
+		IpAddress:       d.ipAddress,
+		Data:            event,
+	}
+	var body []byte
+
+	switch format {
+	case "json":
+		bodyBytes, err := json.Marshal(e)
+		if err != nil {
+			log.Errorf("Error parsing JSON: %v", err)
+			errChan <- err
+		}
+		body = bodyBytes
 	case "xml":
-		parsedData, parseError = ParseXML(logs)
-		if parseError != nil {
-			fmt.Println(parseError)
-			return
+		bodyBytes, err := xml.Marshal(e)
+		if err != nil {
+			log.Errorf("Error parsing JSON: %v", err)
+			errChan <- err
+		}
+		body = bodyBytes
+	default:
+		log.Errorf("Invalid format %v", format)
+	}
+	switch dispatchType {
+	case "http":
+		if err := d.httpDispatcher(body); err != nil {
+			errChan <- err
+		}
+	case "file":
+		if err := d.fileDispatcher(body); err != nil {
+			errChan <- err
+		}
+	case "stdout":
+		fmt.Println(string(body))
+	case "syslog":
+		if err := d.syslogDispatcher(body); err != nil {
+			errChan <- err
 		}
 	default:
-		fmt.Println("Unknown parser", d.Parser)
-		return
+		log.Errorf("Dispatcher type not implemented: %v", dispatchType)
+		errChan <- nil
 	}
-	dispatchError := d.dispatchParsedData(parsedData, destinationURL)
-	if dispatchError != nil {
-		fmt.Println(dispatchError)
-		return
-	}
-	fmt.Println("Successfully sent parsed", d.Parser, "to", destinationURL)
-	recordEventError := SaveEvent(parsedData, d.Parser)
-	if recordEventError != nil {
-		fmt.Println(recordEventError)
-		return
-	}
-	fileName := fmt.Sprintf("logs/%vLogs.txt", strings.ToUpper(d.Parser))
-	fmt.Println("Successfully recorded logs at", fileName)
 }
