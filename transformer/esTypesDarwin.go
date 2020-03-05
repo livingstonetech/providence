@@ -90,12 +90,14 @@ type ESEventRename struct {
 //ESEventLink for Link events
 type ESEventLink struct {
 	SourcePath string
+	TargetDir  string
+	TargetPath string
 }
 
 //ESEventUnlink for Unlink events
 type ESEventUnlink struct {
-	TargetPath      string
-	TargetDirectory string
+	TargetPath            string
+	TargetParentDirectory string
 }
 
 //ESEventSetMode for Setmode events
