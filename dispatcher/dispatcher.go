@@ -56,10 +56,12 @@ func CreateDispatcher(configBlock map[string]interface{}) *Dispatcher {
 }
 
 func (d *Dispatcher) syslogDispatcher(body []byte) error {
-	_, err := d.syslogWriter.Write(body)
-	if err != nil {
-		log.Errorf("Error writing to syslog")
-		return err
+	if d.syslogWriter != nil {
+		_, err := d.syslogWriter.Write(body)
+		if err != nil {
+			log.Errorf("Error writing to syslog")
+			return err
+		}
 	}
 	return nil
 }
