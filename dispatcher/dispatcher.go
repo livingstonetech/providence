@@ -9,6 +9,7 @@ import (
 	"log/syslog"
 	"net/http"
 	"os"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -31,6 +32,7 @@ type Event struct {
 	HostName        string
 	OperatingSystem string
 	Data            interface{}
+	Timestamp       string
 }
 
 func CreateDispatcher(configBlock map[string]interface{}) *Dispatcher {
@@ -116,10 +118,12 @@ func (d *Dispatcher) httpDispatcher(body []byte) error {
 func (d *Dispatcher) Dispatch(event interface{}, errChan chan error) {
 	dispatchType := d.ConfigBlock["type"]
 	format := d.ConfigBlock["format"]
+	currentTime := time.Now().Format(time.RFC3339)
 	e := Event{
 		HostName:        d.hostName,
 		OperatingSystem: d.operatingSystem,
 		Data:            event,
+		Timestamp:       currentTime,
 	}
 	var body []byte
 
