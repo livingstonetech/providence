@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
+	"log/syslog"
 	"net/http"
 	"os"
 
@@ -23,6 +24,7 @@ type Dispatcher struct {
 	ConfigBlock     map[string]interface{}
 	hostName        string
 	operatingSystem string
+	syslogWriter    *syslog.Writer
 }
 
 type Event struct {
@@ -32,26 +34,33 @@ type Event struct {
 }
 
 func CreateDispatcher(configBlock map[string]interface{}) *Dispatcher {
-	return &Dispatcher{
+	d := Dispatcher{
 		ConfigBlock:     configBlock,
 		hostName:        getHostName(),
 		operatingSystem: getOS(),
 	}
+
+	if configBlock["format"] == "syslog" {
+		raddr := fmt.Sprintf("%s:%d", configBlock["url"].(string), configBlock["port"].(int))
+		priority := getSyslogPriorityLevel(configBlock["priority"].(string))
+		writer, err := syslog.Dial("udp", raddr, priority, "providence")
+		if err != nil {
+			// Need better error handling here. Could segfault if writer is nil.
+			log.Errorf("Error initializing syslog")
+			return &d
+		}
+		d.syslogWriter = writer
+	}
+
+	return &d
 }
 
 func (d *Dispatcher) syslogDispatcher(body []byte) error {
-	fmt.Println("SYSLAG")
-	// lrequiredKeys := []string{"url", "port", "severity"}
-	// if !isValidConfig(requiredKeys, d.ConfigBlock) {
-	// 	return errorMessage("Invalid config block")
-	// }
-	// uri := d.ConfigBlock["url"].(string)
-	// port := d.ConfigBlock["port"].(int)
-	// severity := d.ConfigBlock["severity"].(string)
-	// if !isValidUrl(uri) {
-	// 	log.Errorf("url %v is invalid", uri)
-	// 	return errorMessage(fmt.Sprintf("url %v is invalid", uri))
-	// }
+	_, err := d.syslogWriter.Write(body)
+	if err != nil {
+		log.Errorf("Error writing to syslog")
+		return err
+	}
 	return nil
 }
 

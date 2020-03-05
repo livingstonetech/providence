@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"fmt"
+	"log/syslog"
 	"net/url"
 	"os"
 	"runtime"
@@ -42,4 +43,27 @@ func getHostName() string {
 
 func getOS() string {
 	return fmt.Sprintf("%v-%v", runtime.GOOS, runtime.GOARCH)
+}
+
+func getSyslogPriorityLevel(priority string) syslog.Priority {
+	switch priority {
+	case "emergency":
+		return syslog.LOG_EMERG
+	case "alert":
+		return syslog.LOG_ALERT
+	case "critical":
+		return syslog.LOG_CRIT
+	case "error":
+		return syslog.LOG_ERR
+	case "warning":
+		return syslog.LOG_WARNING
+	case "notice":
+		return syslog.LOG_NOTICE
+	case "info":
+		return syslog.LOG_INFO
+	case "debug":
+		return syslog.LOG_DEBUG
+	default:
+		return syslog.LOG_ALERT
+	}
 }
