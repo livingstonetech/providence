@@ -201,15 +201,35 @@ func goBridge(message *C.es_message_t) {
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_SIGNAL:
-		// eventData := (*C.es_event_signal_t)(unsafe.Pointer(&message.event))
+		eventData := (*C.es_event_signal_t)(unsafe.Pointer(&message.event))
+		var processData *C.es_process_t = eventData.target
+		esEventSignal := transformer.ESEventSignal{
+			Signal:          int(eventData.sig),
+			TargetPpid:      int(eventData.target.ppid),
+			TargetGroupID:   int(eventData.target.group_id),
+			TargetSigningID: C.GoString(processData.signing_id.data),
+			TargetTeamID:    C.GoString(processData.team_id.data),
+			TargetCDHash:    esCDHashToString(processData.cdhash),
+		}
+		esMessage.EventData = esEventSignal
 		esMessage.EventCategory = "process"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_KEXTLOAD:
+		eventData := (*C.es_event_kextload_t)(unsafe.Pointer(&message.event))
+		esEventKextLoad := transformer.ESEventKextLoad{
+			Identifier: C.GoString(eventData.identifier.data),
+		}
+		esMessage.EventData = esEventKextLoad
 		esMessage.EventCategory = "process"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_KEXTUNLOAD:
+		eventData := (*C.es_event_kextunload_t)(unsafe.Pointer(&message.event))
+		esEventKextUnoad := transformer.ESEventKextUnload{
+			Identifier: C.GoString(eventData.identifier.data),
+		}
+		esMessage.EventData = esEventKextUnoad
 		esMessage.EventCategory = "process"
 		break
 
@@ -225,6 +245,13 @@ func goBridge(message *C.es_message_t) {
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_CLOSE:
+		eventData := (*C.es_event_close_t)(unsafe.Pointer(&message.event))
+		var file *C.es_file_t = eventData.target
+		esEventClose := transformer.ESEventClose{
+			Modified: bool(eventData.modified),
+			FilePath: C.GoString(file.path.data),
+		}
+		esMessage.EventData = esEventClose
 		esMessage.EventCategory = "file"
 		break
 
@@ -240,36 +267,95 @@ func goBridge(message *C.es_message_t) {
 			break
 		case C.ES_DESTINATION_TYPE_NEW_PATH:
 			// destination := (*esCreateNewPath)(unsafe.Pointer(&eventData.destination))
+			esEventCreate.FilePath = ""
 			break
 		default:
 			// null?
 			break
 		}
+		esMessage.EventData = esEventCreate
 		esMessage.EventCategory = "file"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_RENAME:
 		// TODO fix this. Same as Create event
+		eventData := (*C.es_event_rename_t)(unsafe.Pointer(&message.event))
+		var esEventRename transformer.ESEventRename
+		switch eventData.destination_type {
+		case C.ES_DESTINATION_TYPE_EXISTING_FILE:
+			// destination := (*C.es_file_t)(unsafe.Pointer(&eventData.destination))
+			// esEventCreate.FileDirectory = ""
+			esEventRename.SourcePath = ""
+			esEventRename.DestinationPath = ""
+			break
+		case C.ES_DESTINATION_TYPE_NEW_PATH:
+			// destination := (*esCreateNewPath)(unsafe.Pointer(&eventData.destination))
+			esEventRename.SourcePath = ""
+			esEventRename.DestinationPath = ""
+			break
+		default:
+			// null?
+			break
+		}
+		esMessage.EventData = esEventRename
 		esMessage.EventCategory = "file"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_LINK:
+		eventData := (*C.es_event_link_t)(unsafe.Pointer(&message.event))
+		var source *C.es_file_t = eventData.source
+		var targetDir *C.es_file_t = eventData.target_dir
+		esEventLink := transformer.ESEventLink{
+			SourcePath: C.GoString(source.path.data),
+			TargetDir:  C.GoString(targetDir.path.data),
+			TargetPath: C.GoString(eventData.target_filename.data),
+		}
+		esMessage.EventData = esEventLink
 		esMessage.EventCategory = "file"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_UNLINK:
+		eventData := (*C.es_event_unlink_t)(unsafe.Pointer(&message.event))
+		var target *C.es_file_t = eventData.target
+		var parentDir *C.es_file_t = eventData.parent_dir
+		esEventUnlink := transformer.ESEventUnlink{
+			TargetPath:            C.GoString(target.path.data),
+			TargetParentDirectory: C.GoString(parentDir.path.data),
+		}
+		esMessage.EventData = esEventUnlink
 		esMessage.EventCategory = "file"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_SETMODE:
+		eventData := (*C.es_event_setmode_t)(unsafe.Pointer(&message.event))
+		var target *C.es_file_t = eventData.target
+		esEventSetMode := transformer.ESEventSetMode{
+			NewMode:    uint16(eventData.mode),
+			TargetPath: C.GoString(target.path.data),
+		}
+		esMessage.EventData = esEventSetMode
 		esMessage.EventCategory = "file"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_SETOWNER:
+		eventData := (*C.es_event_setowner_t)(unsafe.Pointer(&message.event))
+		var target *C.es_file_t = eventData.target
+		esEventSetOwner := transformer.ESEventSetOwner{
+			UID:        uint32(eventData.uid),
+			GID:        uint32(eventData.gid),
+			TargetPath: C.GoString(target.path.data),
+		}
+		esMessage.EventData = esEventSetOwner
 		esMessage.EventCategory = "file"
 		break
 
 	case C.ES_EVENT_TYPE_NOTIFY_WRITE:
+		eventData := (*C.es_event_setowner_t)(unsafe.Pointer(&message.event))
+		var target *C.es_file_t = eventData.target
+		esEventWrite := transformer.ESEventWrite{
+			FilePath: C.GoString(target.path.data),
+		}
+		esMessage.EventData = esEventWrite
 		esMessage.EventCategory = "file"
 		break
 
