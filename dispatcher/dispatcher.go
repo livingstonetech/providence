@@ -104,7 +104,7 @@ func (d *Dispatcher) httpDispatcher(body []byte) error {
 		return err
 	}
 	// defer resp.Body.Close()
-	if resp.StatusCode < 200 && resp.StatusCode > 299 {
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Errorf("Error while reading body from HTTP Response")
