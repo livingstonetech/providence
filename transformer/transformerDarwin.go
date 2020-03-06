@@ -9,13 +9,6 @@ import (
 	"github.com/livingstonetech/providence/dispatcher"
 )
 
-// (transformer*)(*es_message_t)
-
-//Bridge bridges between the golang callback and transformer
-func Bridge(message interface{}) {
-	fmt.Printf("%+v\n", message)
-}
-
 //Transformer : This will eventually have a dispatcher and some rules
 type Transformer struct {
 	ProcessRules    map[string]interface{}
@@ -54,10 +47,94 @@ func (t Transformer) Listen(inChan chan ESMessage) {
 //Transform : Transform it!
 func (t Transformer) Transform(message ESMessage) {
 	// Transformation code
+	matched := false
 	if message.EventCategory == "file" {
-		fmt.Println("File Event")
+		for _, rule := range t.FileSystemRules {
+			currentRule := rule.(map[string]interface{})
+			switch message.EventType {
+			case "ES_EVENT_TYPE_NOTIFY_OPEN":
+				messageData := message.EventData.(ESEventOpen)
+				if messageData.FilePath == currentRule["path"] {
+					matched = true
+				}
+				break
+
+			case "ES_EVENT_TYPE_NOTIFY_CLOSE":
+				messageData := message.EventData.(ESEventClose)
+				if messageData.FilePath == currentRule["path"] {
+					matched = true
+				}
+				break
+
+			case "ES_EVENT_TYPE_NOTIFY_CREATE":
+				messageData := message.EventData.(ESEventCreate)
+				if messageData.FilePath == currentRule["path"] {
+					matched = true
+				}
+				break
+
+			case "ES_EVENT_TYPE_NOTIFY_RENAME":
+				messageData := message.EventData.(ESEventRename)
+				if messageData.DestinationPath == currentRule["path"] || messageData.SourcePath == currentRule["path"] {
+					matched = true
+				}
+				break
+
+			case "ES_EVENT_TYPE_NOTIFY_LINK":
+				messageData := message.EventData.(ESEventLink)
+				if messageData.SourcePath == currentRule["path"] || messageData.TargetPath == currentRule["path"] {
+					matched = true
+				}
+				break
+
+			case "ES_EVENT_TYPE_NOTIFY_UNLINK":
+				messageData := message.EventData.(ESEventUnlink)
+				if messageData.TargetPath == currentRule["path"] {
+					matched = true
+				}
+				break
+
+			case "ES_EVENT_TYPE_NOTIFY_SETMODE":
+				messageData := message.EventData.(ESEventSetMode)
+				if messageData.TargetPath == currentRule["path"] {
+					matched = true
+				}
+				break
+
+			case "ES_EVENT_TYPE_NOTIFY_SETOWNER":
+				messageData := message.EventData.(ESEventSetOwner)
+				if messageData.TargetPath == currentRule["path"] {
+					matched = true
+				}
+				break
+
+			case "ES_EVENT_TYPE_NOTIFY_WRITE":
+				messageData := message.EventData.(ESEventWrite)
+				if messageData.FilePath == currentRule["path"] {
+					matched = true
+				}
+				break
+			}
+
+			if matched == true {
+				// We found our match <3
+				fmt.Println("Matched file!")
+				break
+			}
+		}
 	} else if message.EventCategory == "process" {
-		fmt.Println("Process Event")
+		for _, rule := range t.ProcessRules {
+			currentRule := rule.(map[string]interface{})
+			if message.Process.ExecutablePath == currentRule["name"] {
+				fmt.Println("Matched process! " + message.Process.ExecutablePath)
+				matched = true
+			}
+		}
+	}
+
+	// we do not dispatch
+	if matched == false {
+		return
 	}
 
 	dispatchersLength := len(t.dispatchers)
@@ -83,7 +160,6 @@ func (t Transformer) Transform(message ESMessage) {
 			continue
 		}
 
-		fmt.Printf("Read from channel %#v and received %s\n", chans[chosen], value.String())
+		fmt.Printf("Channel: %s", value.String())
 	}
-	fmt.Println("All channels closed")
 }
