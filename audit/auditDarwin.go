@@ -7,8 +7,9 @@ import (
 
 	/*
 		#cgo CFLAGS: -x objective-c -Wimplicit-function-declaration
-		#cgo LDFLAGS: -framework Foundation -lEndpointSecurity
+		#cgo LDFLAGS: -framework Foundation -lEndpointSecurity -lbsm
 		#import "audit_darwin.h"
+		#import <bsm/libbsm.h>
 	*/
 	"C"
 	"fmt"
@@ -139,6 +140,14 @@ func esEventTypeToStr(eventType C.es_event_type_t) string {
 	}
 }
 
+func esGetIDsFromAuditToken(token C.audit_token_t) (int, int, int) {
+	uid := int(C.audit_token_to_auid(token))
+	gid := int(C.audit_token_to_rgid(token))
+	pid := int(C.audit_token_to_pid(token))
+
+	return uid, gid, pid
+}
+
 func esCDHashToString(cdHashArray [20]C.uint8_t) string {
 	cdHash := ""
 	for i := 0; i < 20; i++ {
@@ -150,7 +159,11 @@ func esCDHashToString(cdHashArray [20]C.uint8_t) string {
 //export goBridge
 func goBridge(message *C.es_message_t) {
 	var msgExecutable *C.es_file_t = message.process.executable
+	uid, gid, pid := esGetIDsFromAuditToken(message.process.audit_token)
 	esProcess := transformer.ESProcess{
+		UID:            uid,
+		GID:            gid,
+		PID:            pid,
 		Ppid:           int(message.process.ppid),
 		GroupID:        int(message.process.group_id),
 		SigningID:      C.GoString(message.process.signing_id.data),
@@ -168,7 +181,11 @@ func goBridge(message *C.es_message_t) {
 	case C.ES_EVENT_TYPE_NOTIFY_EXEC:
 		eventData := (*C.es_event_exec_t)(unsafe.Pointer(&message.event))
 		var targetData *C.es_process_t = eventData.target
+		targetUID, targetGID, targetPID := esGetIDsFromAuditToken(targetData.audit_token)
 		esEventExec := transformer.ESEventExec{
+			UID:             targetUID,
+			GID:             targetGID,
+			PID:             targetPID,
 			TargetPpid:      int(eventData.target.ppid),
 			TargetGroupID:   int(eventData.target.group_id),
 			TargetSigningID: C.GoString(targetData.signing_id.data),
@@ -189,7 +206,11 @@ func goBridge(message *C.es_message_t) {
 	case C.ES_EVENT_TYPE_NOTIFY_FORK:
 		eventData := (*C.es_event_fork_t)(unsafe.Pointer(&message.event))
 		var childData *C.es_process_t = eventData.child
+		childUID, childGID, childPID := esGetIDsFromAuditToken(childData.audit_token)
 		esEventFork := transformer.ESEventFork{
+			UID:            childUID,
+			GID:            childGID,
+			PID:            childPID,
 			ChildPpid:      int(eventData.child.ppid),
 			ChildGroupID:   int(eventData.child.group_id),
 			ChildSigningID: C.GoString(childData.signing_id.data),
@@ -203,7 +224,11 @@ func goBridge(message *C.es_message_t) {
 	case C.ES_EVENT_TYPE_NOTIFY_SIGNAL:
 		eventData := (*C.es_event_signal_t)(unsafe.Pointer(&message.event))
 		var processData *C.es_process_t = eventData.target
+		processUID, processGID, processPID := esGetIDsFromAuditToken(processData.audit_token)
 		esEventSignal := transformer.ESEventSignal{
+			UID:             processUID,
+			GID:             processGID,
+			PID:             processPID,
 			Signal:          int(eventData.sig),
 			TargetPpid:      int(eventData.target.ppid),
 			TargetGroupID:   int(eventData.target.group_id),
