@@ -13,6 +13,9 @@ type ESMessage struct {
 
 //ESProcess : Process struct of ESF
 type ESProcess struct {
+	UID            int
+	GID            int
+	PID            int
 	Ppid           int
 	GroupID        int
 	SigningID      string
@@ -23,6 +26,9 @@ type ESProcess struct {
 
 //ESEventExec for Exec events
 type ESEventExec struct {
+	UID             int
+	GID             int
+	PID             int
 	TargetPpid      int
 	TargetGroupID   int
 	TargetSigningID string
@@ -37,6 +43,9 @@ type ESEventExit struct {
 
 //ESEventFork for Fork events
 type ESEventFork struct {
+	UID            int
+	GID            int
+	PID            int
 	ChildPpid      int
 	ChildGroupID   int
 	ChildSigningID string
@@ -46,6 +55,9 @@ type ESEventFork struct {
 
 //ESEventSignal for Signal events
 type ESEventSignal struct {
+	UID             int
+	GID             int
+	PID             int
 	Signal          int // TODO: Need to map to actual signals
 	TargetPpid      int
 	TargetGroupID   int
