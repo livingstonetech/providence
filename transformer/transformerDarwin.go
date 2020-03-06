@@ -118,7 +118,6 @@ func (t Transformer) Transform(message ESMessage) {
 
 			if matched == true {
 				// We found our match <3
-				fmt.Println("Matched file!")
 				break
 			}
 		}
@@ -126,7 +125,6 @@ func (t Transformer) Transform(message ESMessage) {
 		for _, rule := range t.ProcessRules {
 			currentRule := rule.(map[string]interface{})
 			if message.Process.ExecutablePath == currentRule["name"] {
-				fmt.Println("Matched process! " + message.Process.ExecutablePath)
 				matched = true
 			}
 		}
