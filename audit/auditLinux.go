@@ -3,8 +3,6 @@
 package audit
 
 import (
-	"encoding/json"
-	"fmt"
 	"github.com/livingstonetech/providence/transformer"
 	"github.com/mozilla/libaudit-go"
 	log "github.com/sirupsen/logrus"
@@ -19,6 +17,8 @@ type Auditor struct {
 	Transformer   *transformer.Transformer
 	netlinkSocket *libaudit.NetlinkConnection
 }
+
+var transChan chan *libaudit.AuditEvent
 
 func CreateAudit(config *viper.Viper) *Auditor {
 	log.Info("Create audit called")
@@ -68,17 +68,12 @@ func auditProc(e *libaudit.AuditEvent, err error) {
 		}
 		return
 	}
-	// Marshal the event to JSON and print
-	buf, err := json.Marshal(e)
-	if err != nil {
-		fmt.Printf("callback was unable to marshal event: %v", err)
-		return
-	}
-	fmt.Printf("%v\n", string(buf))
+	transChan <- e
 }
 
 //StartAudit : Starts Audit
 func (au Auditor) StartAudit() {
+	go au.Transformer.Listen(transChan)
 	doneCh := make(chan bool, 1)
 	libaudit.GetAuditMessages(au.netlinkSocket, auditProc, &doneCh)
 }
@@ -107,6 +102,7 @@ func (au Auditor) ConfigureAudit() {
 	}
 	rules := au.GetRules()
 	setRules(au.netlinkSocket, rules)
+	transChan = make(chan *libaudit.AuditEvent)
 }
 
 //StopAudit : Stops audit?
